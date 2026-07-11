@@ -39,23 +39,34 @@ The project strictly follows the **Medallion Architecture**, orchestrating batch
 
 ```mermaid
 flowchart LR
-    A[Steam Web API] -- Incremental Fetch --> B[(Bronze: JSON)]
-    B -- PySpark Explode & Dedupe --> C[(Silver: CSVs)]
-    C -- PySpark JDBC Upsert --> D[(Gold: PostgreSQL)]
-    D -- Direct Query --> E[Power BI / Dashboards]
-    
-    subgraph Apache Airflow Orchestration
-        A
-        B
-        C
-        D
+    API["🎮 Steam Web API\n───────────────\nGetAppList · AppDetails\nSteamCharts Player Data"]
+    BRZ[("🟫 Bronze Layer\n───────────────\nRaw JSON Payloads\n~40K+ Games")]
+    SLV[("⬜ Silver Layer\n───────────────\nExploded & Normalized\nCSV DataFrames")]
+    GLD[("🟡 Gold Layer\n───────────────\nPostgreSQL\n7-Table Star Schema")]
+    PBI["📊 Power BI\n───────────────\nMarket Overview\nDeveloper Analytics"]
+    CMP["🗜️ Compaction\n───────────────\nMerge small JSON files\nRun every 3 days"]
+
+    API -- "⬇ Priority Queue\nIncremental Fetch" --> BRZ
+    BRZ -- "⚡ PySpark\nExplode · Dedupe · Normalize" --> SLV
+    SLV -- "🔼 JDBC Upsert\nSchema Enforced" --> GLD
+    GLD -- "🔍 Direct Query" --> PBI
+    BRZ -. "⏱ ShortCircuitOperator\n(every 3 days only)" .-> CMP
+
+    subgraph AIRFLOW ["🌀  Apache Airflow  ·  Hourly DAG Schedule"]
+        API
+        BRZ
+        SLV
+        GLD
+        CMP
     end
-    
-    style A fill:#171a21,stroke:#66c0f4,stroke-width:2px,color:#fff
-    style B fill:#cd7f32,stroke:#8b5a2b,stroke-width:2px,color:#fff
-    style C fill:#c0c0c0,stroke:#808080,stroke-width:2px,color:#000
-    style D fill:#ffd700,stroke:#daa520,stroke-width:2px,color:#000
-    style E fill:#f2c811,stroke:#000,stroke-width:2px,color:#000
+
+    style API  fill:#1b2838,stroke:#66c0f4,stroke-width:2px,color:#c6d4df
+    style BRZ  fill:#3d1f00,stroke:#cd7f32,stroke-width:2px,color:#f4c98a
+    style SLV  fill:#1e2530,stroke:#9aafc7,stroke-width:2px,color:#d0dce8
+    style GLD  fill:#2a2000,stroke:#ffd700,stroke-width:2px,color:#ffe970
+    style PBI  fill:#1a1a2e,stroke:#f2c811,stroke-width:2px,color:#f2c811
+    style CMP  fill:#1a0a2e,stroke:#a78bfa,stroke-width:2px,color:#c4b5fd
+    style AIRFLOW fill:#0d1117,stroke:#2dd4bf,stroke-width:2px,color:#2dd4bf
 ```
 
 ---
@@ -101,7 +112,7 @@ This pipeline was designed with cloud migration in mind. In the next phase, the 
 3. Navigate to `localhost:8089` (Airflow UI), unpause the DAG `steam_hourly_pipeline`, and watch the jobs execute interactively.
 4. Open the `Dashboard.pbix` in Power BI and import the `Steam_Dark_Theme.json` file via the View > Themes tab to instantly apply the dark-mode styling.
 
-![Airflow DAG: V2 Pipeline with Compaction](images/airflow_v2_dag.png)
+![Airflow DAG](images/airflow_dag.png)
 
 ---
 
